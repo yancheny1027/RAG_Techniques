@@ -1,9 +1,9 @@
-from langchain.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
-from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain import PromptTemplate
+from langchain_community.vectorstores import FAISS
+from pydantic import BaseModel, Field
+from langchain_core.prompts import PromptTemplate
 from openai import RateLimitError
 from typing import List
 from rank_bm25 import BM25Okapi
@@ -17,17 +17,17 @@ from enum import Enum
 
 def replace_t_with_space(list_of_documents):
     """
-    Replaces all tab characters ('\t') with spaces in the page content of each document
+    将每个文档的页面内容中的所有制表符 （'\t'） 替换为空格
 
-    Args:
-        list_of_documents: A list of document objects, each with a 'page_content' attribute.
+    参数：
+        list_of_documents：文档对象的列表，每个对象都有一个“page_content”属性。
 
-    Returns:
-        The modified list of documents with tab characters replaced by spaces.
+    返回：
+        已修改的文档列表，其中制表符替换为空格。
     """
 
     for doc in list_of_documents:
-        doc.page_content = doc.page_content.replace('\t', ' ')  # Replace tabs with spaces
+        doc.page_content = doc.page_content.replace('\t', ' ')  # 用空格替换制表符
     return list_of_documents
 
 
@@ -47,29 +47,29 @@ def text_wrap(text, width=120):
 
 def encode_pdf(path, chunk_size=1000, chunk_overlap=200):
     """
-    Encodes a PDF book into a vector store using OpenAI embeddings.
+    使用 OpenAI 向量模型将 PDF 编码到向量存储中。
 
-    Args:
-        path: The path to the PDF file.
-        chunk_size: The desired size of each text chunk.
-        chunk_overlap: The amount of overlap between consecutive chunks.
+    参数：
+        path：PDF文件的路径。
+        chunk_size：每个文本块的所需大小。
+        chunk_overlap：连续块之间的重叠量。
 
-    Returns:
-        A FAISS vector store containing the encoded book content.
+    返回：
+        包含编码 PDF 内容的 FAISS 向量存储。
     """
 
-    # Load PDF documents
+    # 加载 PDF 文档
     loader = PyPDFLoader(path)
     documents = loader.load()
 
-    # Split documents into chunks
+    # 将文档拆分为块
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size, chunk_overlap=chunk_overlap, length_function=len
     )
     texts = text_splitter.split_documents(documents)
     cleaned_texts = replace_t_with_space(texts)
 
-    # Create embeddings and vector store
+    # 创建向量模型和向量存储
     embeddings = OpenAIEmbeddings()
     vectorstore = FAISS.from_documents(cleaned_texts, embeddings)
 
@@ -128,21 +128,21 @@ def encode_from_string(content, chunk_size=1000, chunk_overlap=200):
 
 def retrieve_context_per_question(question, chunks_query_retriever):
     """
-    Retrieves relevant context and unique URLs for a given question using the chunks query retriever.
+    使用 chunks 查询检索器检索给定问题的相关上下文和唯一 URL。
 
-    Args:
-        question: The question for which to retrieve context and URLs.
+    参数：
+        question：要检索上下文和 URL 的问题。
 
-    Returns:
-        A tuple containing:
-        - A string with the concatenated content of relevant documents.
-        - A list of unique URLs from the metadata of the relevant documents.
+    返回：
+        包含以下内容的元组：
+        - 包含相关文档的串联内容的字符串。
+        - 来自相关文档元数据的唯一 URL 列表。
     """
 
-    # Retrieve relevant documents for the given question
-    docs = chunks_query_retriever.get_relevant_documents(question)
+    # 检索给定问题的相关文档
+    docs = chunks_query_retriever.invoke(question)
 
-    # Concatenate document content
+    # 连接文档内容
     # context = " ".join(doc.page_content for doc in docs)
     context = [doc.page_content for doc in docs]
 
